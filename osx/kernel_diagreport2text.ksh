@@ -44,14 +44,38 @@
 # CDDL HEADER END
 
 kernel=/mach_kernel
+if [[ -f /System/Library/Kernels/kernel ]] ; then
+	kernel=/System/Library/Kernels/kernel
+fi
+reportdir=/Library/Logs/DiagnosticReports
+#ATOS_ACCEPTS_D=-d
 
 function usage {
 	print "USAGE: $0 [-f kernel_file] Kernel_diag_report.panic [...]"
 	print "   eg, $0 /Library/Logs/DiagnosticReports/Kernel_2014-05-26-124827_bgregg.panic"
 	exit
 }
-(( $# == 0 )) && usage
 [[ $1 == "-h" || $1 == "--help" ]] && usage
+if [[ $1 == "-a" || $1 == "--all" ]] ; then
+	if ls ${reportdir}/Kernel*panic > /dev/null 2>&1 ; then
+		echo 'Analyzing all  kernel panic files . . .'
+		$0 `ls -tr ${reportdir}/Kernel*panic`
+		exit
+	else
+		echo "No kernel panic files in ${reportdir}"
+		usage
+	fi
+fi
+if (( $# == 0 )) ; then
+	if ls -t ${reportdir}/Kernel*panic | head -1 > /dev/null 2>&1 ; then
+		echo 'Analyzing most recent kernel panic . . .'
+		$0 `ls -t ${reportdir}/Kernel*panic | head -1`
+		exit
+	else
+		echo "No kernel panic files in ${reportdir}"
+		usage
+	fi
+fi
 
 if [[ $1 == "-f" ]]; then
 	kernel=$2
@@ -126,7 +150,7 @@ while (( $# != 0 )); do
 	awk 'backtrace == 1 && /^[^ ]/ { print $3 }
 		/Backtrace.*Return Address/ { backtrace = 1 }
 		/^$/ { backtrace = 0 }
-	' < $file | atos -d -o $kernel -s $slide | while read line; do
+	' < $file | atos ${ATOS_ACCEPTS_D} -o $kernel -s $slide | while read line; do
 		# do extensions
 		if [[ $line =~ 0x* ]]; then
 			i=0
